@@ -31,20 +31,18 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         didSet {
             if play {
                 playLabel.text = ""
-                generateLabel.text = ""
             } else {
                 playLabel.text = "Play"
-                generateLabel.text = "Generate"
             }
         }
     }
-    var generateLabel: SKLabelNode!
     var ballsLabel: SKLabelNode!
     var balls = 5 {
         didSet {
             ballsLabel.text = "Balls: \(balls)"
         }
     }
+    var lastHit: String = "none"
     
     //TODO add clear function on finish to remove boxes
     
@@ -57,11 +55,11 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         physicsBody = SKPhysicsBody(edgeLoopFrom: frame)
         physicsWorld.contactDelegate = self
         
-        makeBouncer(at: CGPoint(x: 0, y: 0))
-        makeBouncer(at: CGPoint(x: 256, y: 0))
-        makeBouncer(at: CGPoint(x: 512, y: 0))
-        makeBouncer(at: CGPoint(x: 768, y: 0))
-        makeBouncer(at: CGPoint(x: 1024, y: 0))
+        makeBouncer(at: CGPoint(x: 0, y: 0),index: 1)
+        makeBouncer(at: CGPoint(x: 256, y: 0),index: 2)
+        makeBouncer(at: CGPoint(x: 512, y: 0),index: 3)
+        makeBouncer(at: CGPoint(x: 768, y: 0),index: 4)
+        makeBouncer(at: CGPoint(x: 1024, y: 0),index: 5)
         
         makeSlot(at: CGPoint(x: 128, y: 0), isGood: true)
         makeSlot(at: CGPoint(x: 384, y: 0), isGood: false)
@@ -78,11 +76,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         editLabel.text = "Edit"
         editLabel.position = CGPoint(x: 80, y: 700)
         addChild(editLabel)
-        
-        generateLabel = SKLabelNode(fontNamed: "Chalkduster")
-        generateLabel.text = "Generate"
-        generateLabel.position = CGPoint(x: 130, y: 650)
-        addChild(generateLabel)
         
         ballsLabel = SKLabelNode(fontNamed: "Chalkduster")
         ballsLabel.text = "Balls: 5"
@@ -103,23 +96,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             let location = touch.location(in: self)
             
             let objects = nodes(at: location)
-            
-            if !play {
-                if objects.contains(generateLabel){
-                    for _ in 0...balls*2 {
-                        let size = CGSize(width: GKRandomDistribution(lowestValue: 16, highestValue: 128).nextInt(), height: 16)
-                        let box = SKSpriteNode(color: RandomColor(), size: size)
-                        box.zRotation = RandomCGFloat(min: 0, max: 3)
-                        box.position.x = CGFloat(arc4random()).truncatingRemainder(dividingBy: CGFloat(UIScreen.main.bounds.width))
-                        box.position.y = CGFloat(arc4random()).truncatingRemainder(dividingBy: UIScreen.main.bounds.height - (CGFloat(UIScreen.main.bounds.height / 3) - 200))
-                        box.name = "box"
-                        box.physicsBody = SKPhysicsBody(rectangleOf: box.size)
-                        box.physicsBody?.isDynamic = false
-                
-                        addChild(box)
-                    }
-                }
-            }
             
             if objects.contains(editLabel) {
                 editingMode = !editingMode
@@ -187,6 +163,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                         ball.position = location
                         ball.position.y = UIScreen.main.bounds.height
                         ball.name = "ball"
+                        lastHit = "none"
                         addChild(ball)
                         balls -= 1
                         if !objects.contains(where: {$0.name?.contains("ball") ?? false}) && balls <= 0 {
@@ -198,16 +175,32 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                     play = !play
                     balls = 5
                     score = 0
+                    
+                    removeChildren(in: children.filter({$0.name == "box"}))
+                    
+                    for _ in 0...balls*3 {
+                        let size = CGSize(width: GKRandomDistribution(lowestValue: 16, highestValue: 128).nextInt(), height: 16)
+                        let box = SKSpriteNode(color: RandomColor(), size: size)
+                        box.zRotation = RandomCGFloat(min: 0, max: 3)
+                        box.position.x = CGFloat(arc4random()).truncatingRemainder(dividingBy: CGFloat(UIScreen.main.bounds.width))
+                        box.position.y = CGFloat(arc4random()).truncatingRemainder(dividingBy: (UIScreen.main.bounds.height - 200) - (CGFloat(UIScreen.main.bounds.height / 3) - 200))
+                        box.name = "box"
+                        box.physicsBody = SKPhysicsBody(rectangleOf: box.size)
+                        box.physicsBody?.isDynamic = false
+                        
+                        addChild(box)
+                    }
                 }
             }
         }
     }
     
-    func makeBouncer(at position: CGPoint) {
+    func makeBouncer(at position: CGPoint, index: Int) {
         let bouncer = SKSpriteNode(imageNamed: "bouncer")
         bouncer.position = position
         bouncer.physicsBody = SKPhysicsBody(circleOfRadius: bouncer.size.width / 2.0)
         bouncer.physicsBody?.isDynamic = false
+        bouncer.name = String(index)
         addChild(bouncer)
     }
 
@@ -238,7 +231,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let spinForever = SKAction.repeatForever(spin)
         slotGlow.run(spinForever)
     }
-    
+
     func collisionBetween(ball: SKNode, object: SKNode) {
         if object.name == "good" {
             destroy(node: ball)
@@ -248,8 +241,24 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             score -= 1
         }
         
+        
         if object.name == "box" {
             destroy(node: object)
+        }
+        
+        for i in 1...5 {
+            if object.name == String(i) {
+                if lastHit != "none" && object.name != lastHit {
+                    print("hit another bouncer")
+                    let physicsBody = ball.physicsBody
+                    let vel = ball.physicsBody?.velocity
+                    ball.physicsBody = nil
+                    ball.position.y = UIScreen.main.bounds.height
+                    ball.physicsBody = physicsBody
+                    ball.physicsBody?.velocity = vel!
+                }
+                lastHit = object.name!
+            }
         }
     }
     
