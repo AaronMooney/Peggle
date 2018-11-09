@@ -43,6 +43,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
     var lastHit: String = "none"
+    var boxesHit: Int = 0
     
     //TODO add clear function on finish to remove boxes
     
@@ -163,6 +164,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                         ball.position = location
                         ball.position.y = UIScreen.main.bounds.height
                         ball.name = "ball"
+                        boxesHit = 0
                         lastHit = "none"
                         addChild(ball)
                         balls -= 1
@@ -187,7 +189,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
                         box.name = "box"
                         box.physicsBody = SKPhysicsBody(rectangleOf: box.size)
                         box.physicsBody?.isDynamic = false
-                        
                         addChild(box)
                     }
                 }
@@ -241,8 +242,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
             score -= 1
         }
         
-        
         if object.name == "box" {
+            boxesHit += 1
+            if (boxesHit > 2){
+                score += 1 * boxesHit
+            } else {
+                score += 1
+            }
             destroy(node: object)
         }
         
